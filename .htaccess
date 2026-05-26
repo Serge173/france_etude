@@ -1,0 +1,27 @@
+# France Étude — Apache
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    DirectoryIndex index.php
+</IfModule>
+
+# Bloquer l'accès aux dossiers sensibles
+<IfModule mod_authz_core.c>
+    Require all granted
+</IfModule>
+
+<FilesMatch "^\.">
+    Require all denied
+</FilesMatch>
+
+# Headers de sécurité
+<IfModule mod_headers.c>
+    Header set X-Content-Type-Options "nosniff"
+    Header set X-Frame-Options "SAMEORIGIN"
+    Header set Referrer-Policy "strict-origin-when-cross-origin"
+</IfModule>
+
+# PHP (si autorisé)
+<IfModule mod_php.c>
+    php_flag display_errors Off
+    php_value upload_max_filesize 2M
+</IfModule>

@@ -1,0 +1,7 @@
+/data/*.sqlite
+/data/*.sqlite-journal
+/config/config.local.php
+.env
+*.log
+.DS_Store
+Thumbs.db
