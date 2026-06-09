@@ -26,6 +26,12 @@ php -S localhost:8080
 
 La base SQLite est créée automatiquement dans `data/france_etude.sqlite`.
 
+## Déploiement sur Vercel (recommandé)
+
+Guide complet : **[DEPLOY-VERCEL.md](DEPLOY-VERCEL.md)**
+
+Résumé : importez le repo GitHub sur Vercel, ajoutez **Postgres** (Storage), définissez `DB_DRIVER=pgsql` et `SECRET_KEY`, puis ouvrez `/install.php`.
+
 ## Déploiement production (hébergement mutualisé / VPS)
 
 ### 1. Fichiers
