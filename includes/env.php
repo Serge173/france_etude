@@ -19,17 +19,37 @@ function env_var(string $key): ?string
 
 function postgres_url(): ?string
 {
-    foreach ([
+    $keys = [
         'POSTGRES_URL',
         'DATABASE_URL',
         'POSTGRES_URL_NON_POOLING',
         'POSTGRES_PRISMA_URL',
         'POSTGRES_URL_NO_SSL',
-    ] as $key) {
+        // Préfixe Vercel Storage (ex. STORAGE_POSTGRES_URL)
+        'STORAGE_POSTGRES_URL',
+        'STORAGE_DATABASE_URL',
+        'STORAGE_POSTGRES_URL_NON_POOLING',
+        'STORAGE_POSTGRES_PRISMA_URL',
+    ];
+
+    foreach ($keys as $key) {
         $url = env_var($key);
         if ($url) {
             return $url;
         }
     }
+
+    // Détection automatique si Vercel utilise un autre préfixe custom
+    foreach ([$_ENV, $_SERVER] as $source) {
+        foreach ($source as $key => $value) {
+            if (!is_string($key) || !is_string($value) || $value === '') {
+                continue;
+            }
+            if (preg_match('/^(.*_)?(POSTGRES_URL|DATABASE_URL)$/', $key)) {
+                return $value;
+            }
+        }
+    }
+
     return null;
 }
