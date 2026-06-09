@@ -1,3 +1,4 @@
+.vercel
 /data/*.sqlite
 /data/*.sqlite-journal
 /config/config.local.php

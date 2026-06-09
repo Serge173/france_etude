@@ -215,7 +215,7 @@ require __DIR__ . '/includes/header.php';
 
         <div id="form-alert" class="alert" role="alert" hidden></div>
 
-        <form id="candidature-form" class="form candidature-form" action="api/submit.php" method="post" novalidate>
+        <form id="candidature-form" class="form candidature-form" action="<?= e(url_path('api/submit.php')) ?>" method="post" novalidate>
             <?= $csrf ?>
             <input type="text" name="website" class="hp-field" tabindex="-1" autocomplete="off" aria-hidden="true">
 

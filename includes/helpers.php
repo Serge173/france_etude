@@ -9,10 +9,29 @@ function e(?string $value): string
     return htmlspecialchars((string) $value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 }
 
+function url_path(string $path): string
+{
+    return '/' . ltrim($path, '/');
+}
+
+function app_secret(): string
+{
+    return APP_SECRET;
+}
+
+function is_https(): bool
+{
+    return (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+        || (($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https');
+}
+
 function start_session(): void
 {
     if (session_status() === PHP_SESSION_ACTIVE) {
         return;
+    }
+    if (getenv('VERCEL')) {
+        ini_set('session.save_path', '/tmp');
     }
     session_name(SESSION_NAME);
     session_set_cookie_params([
@@ -20,18 +39,15 @@ function start_session(): void
         'path' => '/',
         'httponly' => true,
         'samesite' => 'Lax',
-        'secure' => (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off'),
+        'secure' => is_https(),
     ]);
     session_start();
 }
 
 function csrf_token(): string
 {
-    start_session();
-    if (empty($_SESSION[CSRF_TOKEN_KEY])) {
-        $_SESSION[CSRF_TOKEN_KEY] = bin2hex(random_bytes(32));
-    }
-    return $_SESSION[CSRF_TOKEN_KEY];
+    $bucket = gmdate('Y-m-d-H');
+    return hash_hmac('sha256', 'csrf:' . $bucket, app_secret());
 }
 
 function csrf_field(): string
@@ -41,10 +57,15 @@ function csrf_field(): string
 
 function verify_csrf(?string $token): bool
 {
-    start_session();
-    return is_string($token)
-        && !empty($_SESSION[CSRF_TOKEN_KEY])
-        && hash_equals($_SESSION[CSRF_TOKEN_KEY], $token);
+    if (!is_string($token) || $token === '') {
+        return false;
+    }
+    $current = csrf_token();
+    if (hash_equals($current, $token)) {
+        return true;
+    }
+    $previous = hash_hmac('sha256', 'csrf:' . gmdate('Y-m-d-H', time() - 3600), app_secret());
+    return hash_equals($previous, $token);
 }
 
 function json_response(array $data, int $code = 200): void
@@ -60,8 +81,90 @@ function generate_reference(): string
     return 'FE-' . strtoupper(bin2hex(random_bytes(4))) . '-' . date('ymd');
 }
 
+function admin_cookie_name(): string
+{
+    return 'france_etude_admin';
+}
+
+function sign_admin_cookie(int $id, string $name, string $email): string
+{
+    $payload = json_encode([
+        'id' => $id,
+        'name' => $name,
+        'email' => $email,
+        'exp' => time() + 60 * 60 * 24 * 7,
+    ], JSON_THROW_ON_ERROR);
+    $encoded = rtrim(strtr(base64_encode($payload), '+/', '-_'), '=');
+    $sig = hash_hmac('sha256', $encoded, app_secret());
+    return $encoded . '.' . $sig;
+}
+
+function parse_admin_cookie(): ?array
+{
+    $raw = $_COOKIE[admin_cookie_name()] ?? '';
+    if ($raw === '' || !str_contains($raw, '.')) {
+        return null;
+    }
+    [$encoded, $sig] = explode('.', $raw, 2);
+    $expected = hash_hmac('sha256', $encoded, app_secret());
+    if (!hash_equals($expected, $sig)) {
+        return null;
+    }
+    $json = base64_decode(strtr($encoded, '-_', '+/'), true);
+    if ($json === false) {
+        return null;
+    }
+    $data = json_decode($json, true);
+    if (!is_array($data) || empty($data['id']) || empty($data['exp']) || $data['exp'] < time()) {
+        return null;
+    }
+    return $data;
+}
+
+function set_admin_auth(int $id, string $name, string $email): void
+{
+    $value = sign_admin_cookie($id, $name, $email);
+    setcookie(admin_cookie_name(), $value, [
+        'expires' => time() + 60 * 60 * 24 * 7,
+        'path' => '/',
+        'httponly' => true,
+        'samesite' => 'Lax',
+        'secure' => is_https(),
+    ]);
+    start_session();
+    $_SESSION['admin_id'] = $id;
+    $_SESSION['admin_name'] = $name;
+    $_SESSION['admin_email'] = $email;
+}
+
+function clear_admin_auth(): void
+{
+    setcookie(admin_cookie_name(), '', [
+        'expires' => time() - 3600,
+        'path' => '/',
+        'httponly' => true,
+        'samesite' => 'Lax',
+        'secure' => is_https(),
+    ]);
+    start_session();
+    unset($_SESSION['admin_id'], $_SESSION['admin_name'], $_SESSION['admin_email']);
+}
+
+function sync_admin_session(): void
+{
+    $admin = parse_admin_cookie();
+    if (!$admin) {
+        return;
+    }
+    start_session();
+    $_SESSION['admin_id'] = (int) $admin['id'];
+    $_SESSION['admin_name'] = (string) $admin['name'];
+    $_SESSION['admin_email'] = (string) $admin['email'];
+}
+
 function is_admin_logged_in(): bool
 {
+    sync_admin_session();
     start_session();
     return !empty($_SESSION['admin_id']);
 }
@@ -82,13 +185,27 @@ function redirect(string $url): void
 
 function flash(string $key, ?string $message = null): ?string
 {
-    start_session();
+    $cookieKey = '_flash_' . preg_replace('/[^a-z0-9_]/i', '', $key);
     if ($message !== null) {
-        $_SESSION['_flash'][$key] = $message;
+        setcookie($cookieKey, $message, [
+            'expires' => time() + 120,
+            'path' => '/',
+            'httponly' => true,
+            'samesite' => 'Lax',
+            'secure' => is_https(),
+        ]);
         return null;
     }
-    $val = $_SESSION['_flash'][$key] ?? null;
-    unset($_SESSION['_flash'][$key]);
+    $val = $_COOKIE[$cookieKey] ?? null;
+    if ($val !== null) {
+        setcookie($cookieKey, '', [
+            'expires' => time() - 3600,
+            'path' => '/',
+            'httponly' => true,
+            'samesite' => 'Lax',
+            'secure' => is_https(),
+        ]);
+    }
     return $val;
 }
 

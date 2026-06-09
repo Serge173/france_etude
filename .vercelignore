@@ -1,0 +1,7 @@
+data/*.sqlite
+data/*.sqlite-journal
+config/config.local.php
+.env
+.env.local
+demarrer-reseau.bat
+scripts/

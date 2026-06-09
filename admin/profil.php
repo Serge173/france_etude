@@ -57,7 +57,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $pdo->prepare('UPDATE admins SET password_hash = ? WHERE id = ?')
         ->execute([password_hash($new, PASSWORD_DEFAULT), $adminId]);
 
-    session_regenerate_id(true);
+    set_admin_auth($adminId, $admin['name'], $admin['email']);
     flash('success', 'Mot de passe modifié avec succès.');
     redirect('profil.php');
 }
@@ -72,8 +72,8 @@ $currentPage = 'profil';
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mon profil — Admin <?= e(APP_NAME) ?></title>
-    <link rel="icon" href="../<?= e(APP_LOGO) ?>" type="image/png">
-    <link rel="stylesheet" href="../assets/css/style.css">
+    <link rel="icon" href="<?= e(url_path(APP_LOGO)) ?>" type="image/png">
+    <link rel="stylesheet" href="<?= e(url_path('assets/css/style.css')) ?>">
 </head>
 <body class="page-admin">
 <?php require __DIR__ . '/../includes/admin-nav.php'; ?>

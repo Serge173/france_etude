@@ -12,13 +12,16 @@ $error = '';
 $done = false;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (!verify_csrf($_POST[CSRF_TOKEN_KEY] ?? null)) {
+        $error = 'Session expirée. Rechargez la page.';
+    }
     $email = trim($_POST['email'] ?? '');
     $password = $_POST['password'] ?? '';
     $name = trim($_POST['name'] ?? 'Administrateur');
 
-    if (!validate_email($email) || strlen($password) < 8) {
+    if (!$error && (!validate_email($email) || strlen($password) < 8)) {
         $error = 'Email valide et mot de passe (8 caractères minimum) requis.';
-    } else {
+    } elseif (!$error) {
         try {
             $pdo = db();
             init_database($pdo);
@@ -38,6 +41,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         } catch (Throwable $e) {
             $error = 'Erreur : ' . $e->getMessage();
+            if (getenv('VERCEL') && !getenv('POSTGRES_URL') && !getenv('DATABASE_URL')) {
+                $error .= ' — Ajoutez une base Postgres (Storage Vercel) et la variable POSTGRES_URL.';
+            }
         }
     }
 } else {
@@ -55,25 +61,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Installation — <?= e(APP_NAME) ?></title>
-    <link rel="icon" href="<?= e(APP_LOGO) ?>" type="image/png">
-    <link rel="stylesheet" href="assets/css/style.css">
+    <link rel="icon" href="<?= e(url_path(APP_LOGO)) ?>" type="image/png">
+    <link rel="stylesheet" href="<?= e(url_path('assets/css/style.css')) ?>">
 </head>
 <body class="page-install">
     <main class="install-card">
-        <img src="<?= e(APP_LOGO) ?>" alt="" class="auth-logo" width="120" height="120">
+        <img src="<?= e(url_path(APP_LOGO)) ?>" alt="" class="auth-logo" width="120" height="120">
         <h1>Installation <?= e(APP_NAME) ?></h1>
         <p>Créez le compte administrateur pour gérer les candidatures.</p>
         <?php if ($error): ?><div class="alert alert-error"><?= e($error) ?></div><?php endif; ?>
         <?php if ($message): ?><div class="alert alert-success"><?= e($message) ?></div><?php endif; ?>
         <?php if (!$done): ?>
         <form method="post" class="form">
+            <?= csrf_field() ?>
             <label>Nom <input type="text" name="name" value="Administrateur" required></label>
             <label>Email admin <input type="email" name="email" required autocomplete="username"></label>
             <label>Mot de passe <input type="password" name="password" minlength="8" required autocomplete="new-password"></label>
             <button type="submit" class="btn btn-primary">Installer</button>
         </form>
         <?php else: ?>
-        <p><a href="admin/" class="btn btn-primary">Aller à l'administration</a></p>
+        <p><a href="<?= e(url_path('admin/')) ?>" class="btn btn-primary">Aller à l'administration</a></p>
         <?php endif; ?>
     </main>
 </body>

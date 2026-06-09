@@ -1,0 +1,20 @@
+{
+  "version": 2,
+  "functions": {
+    "api/**/*.php": {
+      "runtime": "vercel-php@0.6.2",
+      "memory": 1024,
+      "maxDuration": 30
+    }
+  },
+  "routes": [
+    { "handle": "filesystem" },
+    {
+      "src": "/(.*\\.(css|js|png|jpg|jpeg|gif|svg|ico|webp|woff2?|ttf|eot|map))",
+      "dest": "/$1"
+    },
+    { "src": "/assets/(.*)", "dest": "/assets/$1" },
+    { "src": "/api/submit\\.php", "dest": "/api/submit.php" },
+    { "src": "/(.*)", "dest": "/api/index.php" }
+  ]
+}

@@ -4,6 +4,33 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../config/config.php';
 
+function pdo_from_database_url(string $url): PDO
+{
+    $parts = parse_url($url);
+    if ($parts === false || empty($parts['host'])) {
+        throw new RuntimeException('URL de base de données invalide.');
+    }
+
+    $host = $parts['host'];
+    $port = $parts['port'] ?? 5432;
+    $user = rawurldecode($parts['user'] ?? '');
+    $pass = rawurldecode($parts['pass'] ?? '');
+    $dbname = ltrim($parts['path'] ?? '', '/');
+    $dsn = "pgsql:host={$host};port={$port};dbname={$dbname}";
+    if (!empty($parts['query'])) {
+        parse_str($parts['query'], $params);
+        foreach ($params as $key => $value) {
+            $dsn .= ';' . $key . '=' . $value;
+        }
+    } else {
+        $dsn .= ';sslmode=require';
+    }
+    return new PDO($dsn, $user, $pass, [
+        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+    ]);
+}
+
 function db(): PDO
 {
     static $pdo = null;
@@ -11,7 +38,13 @@ function db(): PDO
         return $pdo;
     }
 
-    if (DB_DRIVER === 'mysql') {
+    if (DB_DRIVER === 'pgsql') {
+        $url = getenv('POSTGRES_URL') ?: getenv('DATABASE_URL');
+        if (!$url) {
+            throw new RuntimeException('POSTGRES_URL ou DATABASE_URL requis pour PostgreSQL.');
+        }
+        $pdo = pdo_from_database_url($url);
+    } elseif (DB_DRIVER === 'mysql') {
         $dsn = sprintf(
             'mysql:host=%s;dbname=%s;charset=utf8mb4',
             DB_MYSQL_HOST,
@@ -38,13 +71,25 @@ function db(): PDO
 
 function init_database(PDO $pdo): void
 {
-    $isSqlite = DB_DRIVER === 'sqlite';
+    $driver = DB_DRIVER;
+    $isSqlite = $driver === 'sqlite';
+    $isPgsql = $driver === 'pgsql';
 
-    $autoIncrement = $isSqlite ? 'INTEGER PRIMARY KEY AUTOINCREMENT' : 'INT UNSIGNED AUTO_INCREMENT PRIMARY KEY';
-    $datetime = $isSqlite ? 'TEXT' : 'DATETIME';
-    $text = $isSqlite ? 'TEXT' : 'TEXT';
-    $varchar = fn(int $n) => $isSqlite ? 'TEXT' : "VARCHAR({$n})";
-    $logementType = $isSqlite ? 'INTEGER' : 'TINYINT(1)';
+    if ($isPgsql) {
+        $autoIncrement = 'SERIAL PRIMARY KEY';
+        $datetime = 'TIMESTAMPTZ';
+        $text = 'TEXT';
+        $varchar = fn(int $n) => "VARCHAR({$n})";
+        $logementType = 'SMALLINT';
+    } else {
+        $autoIncrement = $isSqlite
+            ? 'INTEGER PRIMARY KEY AUTOINCREMENT'
+            : 'INT UNSIGNED AUTO_INCREMENT PRIMARY KEY';
+        $datetime = $isSqlite ? 'TEXT' : 'DATETIME';
+        $text = 'TEXT';
+        $varchar = fn(int $n) => $isSqlite ? 'TEXT' : "VARCHAR({$n})";
+        $logementType = $isSqlite ? 'INTEGER' : 'TINYINT(1)';
+    }
 
     $pdo->exec("
         CREATE TABLE IF NOT EXISTS admins (
@@ -90,26 +135,36 @@ function init_database(PDO $pdo): void
 
     migrate_database($pdo);
 
-    $pdo->exec("CREATE INDEX IF NOT EXISTS idx_candidatures_email ON candidatures(email)");
-    $pdo->exec("CREATE INDEX IF NOT EXISTS idx_candidatures_statut ON candidatures(statut)");
-    $pdo->exec("CREATE INDEX IF NOT EXISTS idx_candidatures_created ON candidatures(created_at)");
-    $pdo->exec("CREATE INDEX IF NOT EXISTS idx_candidatures_logement ON candidatures(demande_logement)");
+    $pdo->exec('CREATE INDEX IF NOT EXISTS idx_candidatures_email ON candidatures(email)');
+    $pdo->exec('CREATE INDEX IF NOT EXISTS idx_candidatures_statut ON candidatures(statut)');
+    $pdo->exec('CREATE INDEX IF NOT EXISTS idx_candidatures_created ON candidatures(created_at)');
+    $pdo->exec('CREATE INDEX IF NOT EXISTS idx_candidatures_logement ON candidatures(demande_logement)');
 }
 
 function migrate_database(PDO $pdo): void
 {
-    $isSqlite = DB_DRIVER === 'sqlite';
-
-    if ($isSqlite) {
+    if (DB_DRIVER === 'sqlite') {
         $cols = $pdo->query('PRAGMA table_info(candidatures)')->fetchAll();
         $names = array_column($cols, 'name');
         if (!in_array('demande_logement', $names, true)) {
             $pdo->exec('ALTER TABLE candidatures ADD COLUMN demande_logement INTEGER NOT NULL DEFAULT 0');
         }
-    } else {
-        $stmt = $pdo->query("SHOW COLUMNS FROM candidatures LIKE 'demande_logement'");
-        if ($stmt->rowCount() === 0) {
-            $pdo->exec('ALTER TABLE candidatures ADD COLUMN demande_logement TINYINT(1) NOT NULL DEFAULT 0');
+        return;
+    }
+
+    if (DB_DRIVER === 'pgsql') {
+        $stmt = $pdo->query("
+            SELECT 1 FROM information_schema.columns
+            WHERE table_name = 'candidatures' AND column_name = 'demande_logement'
+        ");
+        if ($stmt->fetchColumn() === false) {
+            $pdo->exec('ALTER TABLE candidatures ADD COLUMN demande_logement SMALLINT NOT NULL DEFAULT 0');
         }
+        return;
+    }
+
+    $stmt = $pdo->query("SHOW COLUMNS FROM candidatures LIKE 'demande_logement'");
+    if ($stmt->rowCount() === 0) {
+        $pdo->exec('ALTER TABLE candidatures ADD COLUMN demande_logement TINYINT(1) NOT NULL DEFAULT 0');
     }
 }

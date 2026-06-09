@@ -10,7 +10,7 @@ $currentPage = $currentPage ?? '';
 <header class="admin-bar">
     <div class="container admin-bar-inner">
         <a href="dashboard.php" class="admin-brand">
-            <img src="../<?= e(APP_LOGO) ?>" alt="" class="admin-brand-logo" width="36" height="36" decoding="async">
+            <img src="<?= e(url_path(APP_LOGO)) ?>" alt="" class="admin-brand-logo" width="36" height="36" decoding="async">
             <span><?= e(APP_NAME) ?> — Admin</span>
         </a>
         <nav class="admin-nav">

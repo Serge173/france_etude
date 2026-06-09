@@ -30,10 +30,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $admin = $stmt->fetch();
 
         if ($admin && password_verify($password, $admin['password_hash'])) {
-            session_regenerate_id(true);
-            $_SESSION['admin_id'] = (int) $admin['id'];
-            $_SESSION['admin_name'] = $admin['name'];
-            $_SESSION['admin_email'] = $email;
+            set_admin_auth((int) $admin['id'], $admin['name'], $email);
             redirect('dashboard.php');
         }
         flash('error', 'Identifiants incorrects.');
@@ -50,12 +47,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Administration — <?= e(APP_NAME) ?></title>
-    <link rel="icon" href="../<?= e(APP_LOGO) ?>" type="image/png">
-    <link rel="stylesheet" href="../assets/css/style.css">
+    <link rel="icon" href="<?= e(url_path(APP_LOGO)) ?>" type="image/png">
+    <link rel="stylesheet" href="<?= e(url_path('assets/css/style.css')) ?>">
 </head>
 <body class="page-admin-auth">
     <main class="admin-auth-card">
-        <img src="../<?= e(APP_LOGO) ?>" alt="" class="auth-logo" width="120" height="120">
+        <img src="<?= e(url_path(APP_LOGO)) ?>" alt="" class="auth-logo" width="120" height="120">
         <h1>Administration</h1>
         <p>Connectez-vous pour gérer les candidatures.</p>
         <?php if ($error): ?><div class="alert alert-error"><?= e($error) ?></div><?php endif; ?>
@@ -65,7 +62,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <label>Mot de passe<input type="password" name="password" required autocomplete="current-password"></label>
             <button type="submit" class="btn btn-primary">Se connecter</button>
         </form>
-        <p class="admin-auth-back"><a href="../index.php">← Retour au site</a></p>
+        <p class="admin-auth-back"><a href="<?= e(url_path('/')) ?>">← Retour au site</a></p>
     </main>
 </body>
 </html>

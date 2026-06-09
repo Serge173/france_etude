@@ -19,8 +19,24 @@ define('CONTACT_PHONE_TEL', '+33650309898');
 define('CONTACT_WHATSAPP', '33650309898');
 define('CONTACT_WHATSAPP_MESSAGE', 'Bonjour, je souhaite obtenir des informations sur une candidature pour étudier en France.');
 
-// Base de données : sqlite (défaut) ou mysql
-define('DB_DRIVER', getenv('DB_DRIVER') ?: 'sqlite');
+// Base de données : sqlite (local), mysql ou pgsql (Vercel / production)
+$dbDriver = getenv('DB_DRIVER') ?: '';
+if ($dbDriver === '' && (getenv('POSTGRES_URL') || getenv('DATABASE_URL'))) {
+    $dbDriver = 'pgsql';
+}
+if ($dbDriver === '' && getenv('VERCEL')) {
+    $dbDriver = 'pgsql';
+}
+if ($dbDriver === '') {
+    $dbDriver = 'sqlite';
+}
+define('DB_DRIVER', $dbDriver);
+
+$secret = getenv('SECRET_KEY') ?: getenv('VERCEL_GIT_COMMIT_SHA') ?: '';
+if ($secret === '' && getenv('VERCEL')) {
+    $secret = hash('sha256', (getenv('VERCEL_URL') ?: 'france-etude') . '-vercel-fallback');
+}
+define('APP_SECRET', $secret !== '' ? $secret : 'dev-local-secret-change-in-production');
 
 define('DB_SQLITE_PATH', __DIR__ . '/../data/france_etude.sqlite');
 
