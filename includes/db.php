@@ -39,7 +39,7 @@ function db(): PDO
     }
 
     if (DB_DRIVER === 'pgsql') {
-        $url = getenv('POSTGRES_URL') ?: getenv('DATABASE_URL');
+        $url = postgres_url();
         if (!$url) {
             throw new RuntimeException('POSTGRES_URL ou DATABASE_URL requis pour PostgreSQL.');
         }

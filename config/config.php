@@ -6,6 +6,8 @@
 
 declare(strict_types=1);
 
+require_once __DIR__ . '/../includes/env.php';
+
 define('APP_NAME', 'France Étude');
 define('APP_TAGLINE', 'Votre passerelle vers les universités privées françaises');
 define('APP_LOGO', 'assets/img/logo.png');
@@ -20,11 +22,11 @@ define('CONTACT_WHATSAPP', '33650309898');
 define('CONTACT_WHATSAPP_MESSAGE', 'Bonjour, je souhaite obtenir des informations sur une candidature pour étudier en France.');
 
 // Base de données : sqlite (local), mysql ou pgsql (Vercel / production)
-$dbDriver = getenv('DB_DRIVER') ?: '';
-if ($dbDriver === '' && (getenv('POSTGRES_URL') || getenv('DATABASE_URL'))) {
+$dbDriver = env_var('DB_DRIVER') ?: '';
+if ($dbDriver === '' && postgres_url()) {
     $dbDriver = 'pgsql';
 }
-if ($dbDriver === '' && getenv('VERCEL')) {
+if ($dbDriver === '' && env_var('VERCEL')) {
     $dbDriver = 'pgsql';
 }
 if ($dbDriver === '') {
@@ -32,18 +34,18 @@ if ($dbDriver === '') {
 }
 define('DB_DRIVER', $dbDriver);
 
-$secret = getenv('SECRET_KEY') ?: getenv('VERCEL_GIT_COMMIT_SHA') ?: '';
-if ($secret === '' && getenv('VERCEL')) {
-    $secret = hash('sha256', (getenv('VERCEL_URL') ?: 'france-etude') . '-vercel-fallback');
+$secret = env_var('SECRET_KEY') ?: env_var('VERCEL_GIT_COMMIT_SHA') ?: '';
+if ($secret === '' && env_var('VERCEL')) {
+    $secret = hash('sha256', (env_var('VERCEL_URL') ?: 'france-etude') . '-vercel-fallback');
 }
 define('APP_SECRET', $secret !== '' ? $secret : 'dev-local-secret-change-in-production');
 
 define('DB_SQLITE_PATH', __DIR__ . '/../data/france_etude.sqlite');
 
-define('DB_MYSQL_HOST', getenv('DB_HOST') ?: '127.0.0.1');
-define('DB_MYSQL_NAME', getenv('DB_NAME') ?: 'france_etude');
-define('DB_MYSQL_USER', getenv('DB_USER') ?: 'root');
-define('DB_MYSQL_PASS', getenv('DB_PASS') ?: '');
+define('DB_MYSQL_HOST', env_var('DB_HOST') ?: '127.0.0.1');
+define('DB_MYSQL_NAME', env_var('DB_NAME') ?: 'france_etude');
+define('DB_MYSQL_USER', env_var('DB_USER') ?: 'root');
+define('DB_MYSQL_PASS', env_var('DB_PASS') ?: '');
 
 // Session & sécurité
 define('SESSION_NAME', 'france_etude_sess');

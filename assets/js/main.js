@@ -48,7 +48,14 @@
         headers: { Accept: 'application/json' },
       });
 
-      const data = await response.json();
+      const text = await response.text();
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch (parseErr) {
+        showAlert('error', 'Réponse serveur invalide. Réessayez ou contactez-nous par WhatsApp.');
+        return;
+      }
 
       if (data.success) {
         showAlert(

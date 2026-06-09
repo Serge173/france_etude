@@ -3,7 +3,15 @@ declare(strict_types=1);
 
 header('Content-Type: application/json; charset=utf-8');
 
-$status = ['ok' => true, 'php' => PHP_VERSION, 'vercel' => getenv('VERCEL') === '1'];
+require_once __DIR__ . '/../includes/env.php';
+
+$status = [
+    'ok' => true,
+    'php' => PHP_VERSION,
+    'vercel' => env_var('VERCEL') === '1',
+    'db_driver' => env_var('DB_DRIVER'),
+    'has_postgres_url' => postgres_url() !== null,
+];
 
 try {
     require_once __DIR__ . '/../includes/db.php';
