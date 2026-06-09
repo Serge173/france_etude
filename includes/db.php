@@ -4,33 +4,6 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../config/config.php';
 
-function pdo_from_database_url(string $url): PDO
-{
-    $parts = parse_url($url);
-    if ($parts === false || empty($parts['host'])) {
-        throw new RuntimeException('URL de base de données invalide.');
-    }
-
-    $host = $parts['host'];
-    $port = $parts['port'] ?? 5432;
-    $user = rawurldecode($parts['user'] ?? '');
-    $pass = rawurldecode($parts['pass'] ?? '');
-    $dbname = ltrim($parts['path'] ?? '', '/');
-    $dsn = "pgsql:host={$host};port={$port};dbname={$dbname}";
-    if (!empty($parts['query'])) {
-        parse_str($parts['query'], $params);
-        foreach ($params as $key => $value) {
-            $dsn .= ';' . $key . '=' . $value;
-        }
-    } else {
-        $dsn .= ';sslmode=require';
-    }
-    return new PDO($dsn, $user, $pass, [
-        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-    ]);
-}
-
 function db(): PDO
 {
     static $pdo = null;
@@ -39,11 +12,7 @@ function db(): PDO
     }
 
     if (DB_DRIVER === 'pgsql') {
-        $url = postgres_url();
-        if (!$url) {
-            throw new RuntimeException('POSTGRES_URL ou DATABASE_URL requis pour PostgreSQL.');
-        }
-        $pdo = pdo_from_database_url($url);
+        $pdo = pdo_from_postgres_config();
     } elseif (DB_DRIVER === 'mysql') {
         $dsn = sprintf(
             'mysql:host=%s;dbname=%s;charset=utf8mb4',

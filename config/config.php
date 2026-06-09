@@ -23,10 +23,7 @@ define('CONTACT_WHATSAPP_MESSAGE', 'Bonjour, je souhaite obtenir des information
 
 // Base de données : sqlite (local), mysql ou pgsql (Vercel / production)
 $dbDriver = env_var('DB_DRIVER') ?: '';
-if ($dbDriver === '' && postgres_url()) {
-    $dbDriver = 'pgsql';
-}
-if ($dbDriver === '' && env_var('VERCEL')) {
+if ($dbDriver === '' && postgres_available()) {
     $dbDriver = 'pgsql';
 }
 if ($dbDriver === '') {
